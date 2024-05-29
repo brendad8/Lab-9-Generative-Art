@@ -5,3 +5,190 @@ format: html
 embed-resources: true
 editor: visual
 ---
+
+## Packages / Setup
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(ggthemes)
+library(palmerpenguins)
+```
+
+# Art Piece 1
+
+```{r}
+penguins_sub <- penguins %>%
+  mutate(
+    bill_length_mm = case_when(
+      species == "Gentoo" ~ bill_length_mm + 10,
+      TRUE ~ bill_length_mm),
+    bill_depth_mm = case_when(
+      species == "Gentoo" ~ bill_depth_mm + 3,
+      TRUE ~ bill_depth_mm)) %>%
+  filter(bill_depth_mm > 19)
+
+penguins_shift <- penguins_sub %>%
+  mutate(bill_length_mm = bill_length_mm + 0.25,
+         bill_depth_mm = bill_depth_mm - 0.025)
+
+
+theta <- seq(pi, 2*pi, by = 0.05)
+x <- -1/4*cos(theta) + 57.5 - 1*(1/4)
+y = 1/8*sin(theta) + 20.25
+
+hook <- cbind(x, y)
+```
+
+```{r}
+x <- seq(35, 70, by = 0.1)
+y <- 20.5 + 1/4*cos(x/2)
+y2 <- y-1
+y3 <- y+1
+
+current1 <- cbind(x, y)
+current2 <- cbind(x, y2)
+current3 <- cbind(x, y3)
+
+```
+
+```{r}
+#| warning: false
+
+ggplot() +
+  geom_point(aes(x = bill_length_mm, y = bill_depth_mm, color = species), shape = 17, data = penguins_sub, size = 3) +
+  geom_point(aes(x = bill_length_mm, y = bill_depth_mm, color = species), shape = 16, data = penguins_shift, size = 3) +
+  geom_segment(aes(x = 57.5, y = 22, xend = 57.5, yend = 20.25)) +
+  geom_line(aes(x = x, y = y), data = hook) +
+  geom_line(aes(x = x, y = y), lwd = 5, color = "blue", data = current1, alpha = 0.2) +
+  geom_line(aes(x = x, y = y2), lwd = 5, color = "blue", data = current2, alpha = 0.2) +
+  geom_line(aes(x = x, y = y3), lwd = 5, color = "blue", data = current3, alpha = 0.2) +
+  ylim(c(19, 22)) + 
+  theme_void() +
+  theme(legend.position = "none",
+        panel.background = element_rect(fill = "royalblue"))
+  
+```
+
+# Art Piece 2
+
+## Tiles and Tessellations
+
+```{r}
+sample_canva2 <- function(seed = NULL, n = 4) {
+  if(!is.null(seed)) set.seed(seed)
+  sample(ggthemes::canva_palettes, 1)[[1]] |>
+    (\(x) colorRampPalette(x)(n))()  
+}
+
+choose_rectangle <- function(blocks) {
+  sample(nrow(blocks), 1, prob = blocks$area)
+}
+
+choose_break <- function(lower, upper) {
+  round((upper - lower) * runif(1))
+}
+
+create_rectangles <- function(left, right, bottom, top, value) {
+  tibble(
+    left = left,
+    right = right,
+    bottom = bottom,
+    top = top,
+    width = right - left,
+    height = top - bottom,
+    area = width * height,
+    value = value
+  )
+}
+
+split_rectangle_x <- function(rectangle, new_value) {
+  with(rectangle, {
+    split <- choose_break(left, right)
+    new_left  <- c(left, left + split)
+    new_right <- c(left + split, right)
+    new_value <- c(value, new_value)
+    create_rectangles(new_left, new_right, bottom, top, new_value)
+  })
+}
+
+split_rectangle_y <- function(rectangle, new_value) {
+  with(rectangle, {
+    split <- choose_break(bottom, top)
+    new_bottom <- c(bottom, bottom + split)
+    new_top <- c(bottom + split, top)
+    new_value <- c(value, new_value)
+    create_rectangles(left, right, new_bottom, new_top, new_value)
+  })
+}
+
+split_rectangle <- function(rectangle, value) {
+  if(runif(1) < .5) {
+    return(split_rectangle_x(rectangle, value))
+  }
+  split_rectangle_y(rectangle, value)
+}
+
+split_block <- function(blocks, value) {
+  old <- choose_rectangle(blocks) 
+  new <- split_rectangle(blocks[old, ], value)
+  bind_rows(blocks[-old, ], new)
+}
+```
+
+```{r}
+subdivision <- function(ncol = 1000, 
+                        nrow = 1000, 
+                        nsplits = 50, 
+                        seed = NULL) {
+  
+  if(!is.null(seed)) set.seed(seed)
+  blocks <- create_rectangles(
+    left = 1, 
+    right = ncol, 
+    bottom = 1, 
+    top = nrow, 
+    value = 0
+  )
+  reduce(1:nsplits, split_block, .init = blocks)
+}
+
+```
+
+```{r}
+develop <- function(div, seed = NULL) {
+  
+  div |> 
+    ggplot(aes(
+      xmin = left, 
+      xmax = right, 
+      ymin = bottom, 
+      ymax = top,
+      fill = value
+    )) +
+    geom_rect(
+      colour = "#ffffff", 
+      size = 3,
+      show.legend = FALSE
+    ) +
+    scale_fill_gradientn(
+      colours = sample_canva2(seed)
+    ) +
+    coord_equal() +
+    theme_void() +
+    theme(
+      plot.background = element_rect(
+        fill = "#ffffff"
+      )
+    ) 
+}
+```
+
+```{r}
+subdivision(seed = 1) |> develop()
+```
+
+```{r}
+subdivision(nsplits = 100, seed = 1) |> develop()
+```
