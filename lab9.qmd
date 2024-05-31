@@ -14,6 +14,9 @@ editor: visual
 library(tidyverse)
 library(ggthemes)
 library(palmerpenguins)
+# library(rayshader)
+library(ambient)
+library(tictoc)
 ```
 
 # Art Piece 1
@@ -54,141 +57,115 @@ current3 <- cbind(x, y3)
 ```
 
 ```{r}
+x <- c(62)
+y <- c(21.2)
+
+x2 <- c(62 + 0.24)
+y2 <- c(21.2 - 0.02)
+
+fish <- cbind(x,y)
+fish_tail <- cbind(x2,y2)
+
+
+```
+
+```{r}
 #| warning: false
 
 ggplot() +
   geom_point(aes(x = bill_length_mm, y = bill_depth_mm, color = species), shape = 17, data = penguins_sub, size = 3) +
   geom_point(aes(x = bill_length_mm, y = bill_depth_mm, color = species), shape = 16, data = penguins_shift, size = 3) +
+  geom_point(aes(x = x, y = y), color = "red", shape = 16, data = fish, size = 3) +
+  geom_point(aes(x = x2, y = y2), fill = "red", color = "red", shape = 25, data = fish_tail, size = 2.5) +
   geom_segment(aes(x = 57.5, y = 22, xend = 57.5, yend = 20.25)) +
   geom_line(aes(x = x, y = y), data = hook) +
   geom_line(aes(x = x, y = y), lwd = 5, color = "blue", data = current1, alpha = 0.2) +
   geom_line(aes(x = x, y = y2), lwd = 5, color = "blue", data = current2, alpha = 0.2) +
   geom_line(aes(x = x, y = y3), lwd = 5, color = "blue", data = current3, alpha = 0.2) +
-  ylim(c(19, 22)) + 
+  ylim(c(19, 22)) + geom_point(aes(x = x, y = y), color = "red", shape = 16, data = fish, size = 3) + 
   theme_void() +
   theme(legend.position = "none",
         panel.background = element_rect(fill = "royalblue"))
   
 ```
 
+### Title
+
+Fishing for an outlier
+
+### Museum Description
+
+This art piece uses simple geometric shapes and patterns to depict a scene under the sea. It depicts three different schools of fish swimming along with the current of the ocean with a fishing hook among the fish waiting for a catch. The main focal point of the piece is the red fish, depicted by itself, swimming alone against the current of the ocean. While this piece appears to only be simple ocean scene, it actually goes much deeper and speaks to conformity in society. The ocean clearly represents society as a whole with the currents representing the forces in society that influence the way people behave. We see this with almost all the fish swimming with the current depicting the way people conform to societal pressures and norms. When asked about what the fishing hook represents the artist explained that it simply represents a fishing hook. Perhaps the artist is hiding a deeper meaning...
+
+### Code Description
+
+To plot the fish, I used the palmer penguins data set and plotted the bill length and depth to create both the body and tail for each fish. This was done using two separate datasets with one data set having values slightly shifted from the other. These data were then used to plot the fish tail as a triangle and fish body as a circle. The red fish was plotted as its own separate and manually created point using the same process.
+
+The ocean currents were created using a cosine function to mimic a wave pattern in the ocean. Additionally the fish hook was created by plotting a vertical line and and attaching a half circle to the bottom. The hook was created by manipulating sin and cos functions to create a hooked shaped result.
+
 # Art Piece 2
 
-## Tiles and Tessellations
+### Shading Tricks
+
+From: <https://art-from-code.netlify.app/day-1/session-4/>
 
 ```{r}
-sample_canva2 <- function(seed = NULL, n = 4) {
-  if(!is.null(seed)) set.seed(seed)
-  sample(ggthemes::canva_palettes, 1)[[1]] |>
-    (\(x) colorRampPalette(x)(n))()  
+
+is_within_circle <- function(x_coord, y_coord, x_center, y_center, radius) {
+  (x_coord - x_center)^2 + (y_coord - y_center)^2 < radius^2
 }
 
-choose_rectangle <- function(blocks) {
-  sample(nrow(blocks), 1, prob = blocks$area)
-}
-
-choose_break <- function(lower, upper) {
-  round((upper - lower) * runif(1))
-}
-
-create_rectangles <- function(left, right, bottom, top, value) {
-  tibble(
-    left = left,
-    right = right,
-    bottom = bottom,
-    top = top,
-    width = right - left,
-    height = top - bottom,
-    area = width * height,
-    value = value
-  )
-}
-
-split_rectangle_x <- function(rectangle, new_value) {
-  with(rectangle, {
-    split <- choose_break(left, right)
-    new_left  <- c(left, left + split)
-    new_right <- c(left + split, right)
-    new_value <- c(value, new_value)
-    create_rectangles(new_left, new_right, bottom, top, new_value)
-  })
-}
-
-split_rectangle_y <- function(rectangle, new_value) {
-  with(rectangle, {
-    split <- choose_break(bottom, top)
-    new_bottom <- c(bottom, bottom + split)
-    new_top <- c(bottom + split, top)
-    new_value <- c(value, new_value)
-    create_rectangles(left, right, new_bottom, new_top, new_value)
-  })
-}
-
-split_rectangle <- function(rectangle, value) {
-  if(runif(1) < .5) {
-    return(split_rectangle_x(rectangle, value))
-  }
-  split_rectangle_y(rectangle, value)
-}
-
-split_block <- function(blocks, value) {
-  old <- choose_rectangle(blocks) 
-  new <- split_rectangle(blocks[old, ], value)
-  bind_rows(blocks[-old, ], new)
-}
-```
-
-```{r}
-subdivision <- function(ncol = 1000, 
-                        nrow = 1000, 
-                        nsplits = 50, 
-                        seed = NULL) {
+additive_circles <- function(n = 5, pixels = 1000, seed = NULL) {
   
   if(!is.null(seed)) set.seed(seed)
-  blocks <- create_rectangles(
-    left = 1, 
-    right = ncol, 
-    bottom = 1, 
-    top = nrow, 
-    value = 0
-  )
-  reduce(1:nsplits, split_block, .init = blocks)
-}
-
-```
-
-```{r}
-develop <- function(div, seed = NULL) {
   
-  div |> 
-    ggplot(aes(
-      xmin = left, 
-      xmax = right, 
-      ymin = bottom, 
-      ymax = top,
-      fill = value
-    )) +
-    geom_rect(
-      colour = "#ffffff", 
-      size = 3,
-      show.legend = FALSE
-    ) +
-    scale_fill_gradientn(
-      colours = sample_canva2(seed)
-    ) +
-    coord_equal() +
-    theme_void() +
-    theme(
-      plot.background = element_rect(
-        fill = "#ffffff"
+  # setup canvas
+  art <- long_grid(
+    x = seq(0, 1, length.out = pixels),
+    y = seq(0, 1, length.out = pixels)
+  )
+  art$paint <- 0
+  
+  for(i in 1:n) {
+    
+    # sample a random circle
+    x_center <- runif(1, min = 0, max = 1)
+    y_center <- runif(1, min = 0, max = 1)
+    radius <- runif(1, min = .01, max = 0.03)
+    
+    # add +1 to all points inside the circle
+    art <- art |>
+      mutate(
+        paint = paint + is_within_circle(
+          x, y, x_center, y_center, radius
+        )
       )
-    ) 
+  }
+  
+  # normalise paint to [0, 1] range and return
+  art$paint <- normalise(art$paint)
+  return(art)
 }
 ```
 
 ```{r}
-subdivision(seed = 1) |> develop()
+#| fig-width: 7
+#| fig-height: 7
+
+additive_circles(n = 500, seed = 8) %>%
+ggplot(aes(x, y, fill = paint)) +
+  geom_raster(show.legend = FALSE) + 
+  theme_void()
 ```
 
-```{r}
-subdivision(nsplits = 100, seed = 1) |> develop()
-```
+### Title
+
+Bubbles from the deep
+
+### Museum Description
+
+This art piece depicts another abstract ocean scene. We see large amounts of bubbles rising from the bottom of the piece towards the top. The bubbles are scattered randomly through the piece. A deep, rich blue is used for the ocean background with the bubbles being lighter but varying in shades. While this piece appears to be simply pleasing to the eye, the artist is once again making a statement about life as a whole. The bubbles represent people while the ocean represents the environment in which we live. In the piece, we notice that the lightest spots correspond to the places with the most overlapping bubbles. This relates to how strong connections with other people can create bright spots in our lives. It speaks to the importance of human connection for everyone, in the dark ocean of life.
+
+### Code Description
+
+This art piece was created by adapting code adapted from [this link](https://art-from-code.netlify.app/day-1/session-4/). This code generates 500 circles with centers generated by uniform distributions in the x and y directions. The parameters for these distributions were manually changed to be anywhere on the piece rather than focused towards the center. Additionally, a radius was generated for each circle using a uniform distribution and the parameters for this process were also changed to be much smaller than their original values to mimic bubbles. As we generate the circles, the piece is formed by coloring in the grid. The color for any spot is determined by how many circles overlap a certain point. The more circles that overlap a point, the lighter the color. Lastly, the seed was changed to the number 8 which is my favorite number so it was a very important change to make.
