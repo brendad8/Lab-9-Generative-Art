@@ -14,7 +14,6 @@ editor: visual
 library(tidyverse)
 library(ggthemes)
 library(palmerpenguins)
-# library(rayshader)
 library(ambient)
 library(tictoc)
 ```
